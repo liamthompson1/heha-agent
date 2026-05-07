@@ -75,6 +75,10 @@ function firstOfNextMonth(): Date {
   return new Date(d.getFullYear(), d.getMonth() + 1, 1)
 }
 
+function isValidEmail(s: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim())
+}
+
 function displayDate(iso: string): string {
   if (!iso) return ''
   return new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', {
@@ -287,6 +291,9 @@ export default function NewTripWizard({ onClose, onTripCreated }: Props) {
   const [editingFromSummary, setEditingFromSummary] = useState(false)
   const [isCreating,     setIsCreating]     = useState(false)
   const [createError,    setCreateError]    = useState('')
+  // Agent flow: trip is created on a customer's HX account; we capture their
+  // email at review time and silently create the customer account server-side.
+  const [customerEmail,  setCustomerEmail]  = useState('')
 
   const inputRef   = useRef<HTMLInputElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
@@ -342,13 +349,18 @@ export default function NewTripWizard({ onClose, onTripCreated }: Props) {
   }
 
   async function handleCreate() {
+    if (!isValidEmail(customerEmail)) {
+      setCreateError('Enter a valid customer email')
+      return
+    }
     setIsCreating(true)
     setCreateError('')
     try {
-      const res = await fetch(`${basePath}/api/trips`, {
+      const res = await fetch(`${basePath}/api/agent/customer-trip`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          email: customerEmail.trim(),
           name,
           fromDate: startDate,
           toDate:   endDate,
@@ -357,11 +369,14 @@ export default function NewTripWizard({ onClose, onTripCreated }: Props) {
         }),
       })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error ?? 'Failed to create trip')
-      const result = json.data?.createTrip
-      const tripId = result?.trip?.id ?? result?.existingId
-      if (!tripId) throw new Error('No trip ID returned')
-      onTripCreated(tripId)
+      if (!res.ok || !json.success) {
+        // Friendly copy for the "this email already has an HX account" case.
+        if (res.status === 409 && json.error === 'customer_exists') {
+          throw new Error(json.message ?? 'This customer already has a Holiday Extras account. Ask them to sign in to add the trip.')
+        }
+        throw new Error(json.error ?? json.message ?? 'Failed to create trip')
+      }
+      onTripCreated(json.tripId)
     } catch (e) {
       setCreateError(e instanceof Error ? e.message : 'Something went wrong')
       setIsCreating(false)
@@ -656,16 +671,36 @@ export default function NewTripWizard({ onClose, onTripCreated }: Props) {
             </button>
           ))}
         </div>
+
+        {/* Customer email — agent flow attaches the trip to the customer's HX account. */}
+        <div className="flex flex-col gap-2">
+          <label className="text-[13px]" style={{ color: 'var(--fg-3)' }}>Customer email</label>
+          <input
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            spellCheck={false}
+            value={customerEmail}
+            onChange={e => setCustomerEmail(e.target.value)}
+            placeholder="customer@example.com"
+            className="w-full rounded-2xl px-4 py-3.5 outline-none text-[16px] transition-colors"
+            style={{ background: 'var(--input-bg)', color: 'var(--fg)' }}
+          />
+          <p className="text-[13px]" style={{ color: 'var(--fg-3)' }}>
+            We&rsquo;ll create the trip on this customer&rsquo;s Holiday Extras account.
+          </p>
+        </div>
+
         {createError && (
           <p className="text-[14px] text-center" style={{ color: '#ff3b30' }}>{createError}</p>
         )}
         <button
           onClick={handleCreate}
-          disabled={isCreating}
+          disabled={isCreating || !isValidEmail(customerEmail)}
           className="w-full rounded-full py-4 text-[18px] font-semibold transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
           style={{ background: 'var(--btn-primary)', color: '#fff' }}
         >
-          {isCreating ? 'Creating trip…' : <><FontAwesomeIcon icon={faCheck} style={{ width: 16, height: 16 }} /> Go to My Trip</>}
+          {isCreating ? 'Creating trip…' : <><FontAwesomeIcon icon={faCheck} style={{ width: 16, height: 16 }} /> Create trip for customer</>}
         </button>
       </div>
     )
