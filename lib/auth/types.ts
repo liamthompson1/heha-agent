@@ -3,6 +3,11 @@ export interface SessionData {
   email?: string
   userHash?: string
   isAuthenticated: boolean
+  // Agent (B2B) session fields. Present iff isAgent === true.
+  isAgent?: boolean
+  agentCode?: string
+  initials?: string
+  retailToken?: string
 }
 
 export interface OtpRequestResult {

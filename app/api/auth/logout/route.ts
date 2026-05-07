@@ -7,7 +7,11 @@ export async function POST() {
 
   res.cookies.set(opts.name, opts.value, { httpOnly: opts.httpOnly, path: opts.path, maxAge: opts.maxAge })
 
-  for (const name of ['hx_bearer_token', 'hx_auth_session', 'auth_session', 'hx_user_id']) {
+  for (const name of [
+    'hx_bearer_token', 'hx_auth_session', 'auth_session', 'hx_user_id',
+    // Agent (B2B) cookies set by /api/agent/login.
+    'hx_retail_token', 'hx_agent_code', 'hx_agent_data', 'hx_agent_session',
+  ]) {
     res.cookies.set(name, '', { httpOnly: true, path: '/', maxAge: 0 })
   }
 

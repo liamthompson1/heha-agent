@@ -10,6 +10,10 @@ export interface Session {
   userHash: string | null
   isHxUser: boolean
   hxToken: string | null
+  isAgent: boolean
+  agentCode: string | null
+  initials: string | null
+  retailToken: string | null
 }
 
 interface SessionState extends Session {
@@ -17,15 +21,21 @@ interface SessionState extends Session {
   refresh: () => void
 }
 
+const EMPTY: Session = {
+  authenticated: false,
+  email: null,
+  userId: null,
+  userHash: null,
+  isHxUser: false,
+  hxToken: null,
+  isAgent: false,
+  agentCode: null,
+  initials: null,
+  retailToken: null,
+}
+
 export function useSession(): SessionState {
-  const [state, setState] = useState<Session>({
-    authenticated: false,
-    email: null,
-    userId: null,
-    userHash: null,
-    isHxUser: false,
-    hxToken: null,
-  })
+  const [state, setState] = useState<Session>(EMPTY)
   const [loading, setLoading] = useState(true)
 
   const refresh = useCallback(() => {
@@ -40,11 +50,13 @@ export function useSession(): SessionState {
           userHash: data.userHash ?? null,
           isHxUser: !!data.isHxUser,
           hxToken: data.hxToken ?? null,
+          isAgent: !!data.isAgent,
+          agentCode: data.agentCode ?? null,
+          initials: data.initials ?? null,
+          retailToken: data.retailToken ?? null,
         })
       })
-      .catch(() => {
-        setState({ authenticated: false, email: null, userId: null, userHash: null, isHxUser: false, hxToken: null })
-      })
+      .catch(() => setState(EMPTY))
       .finally(() => setLoading(false))
   }, [])
 

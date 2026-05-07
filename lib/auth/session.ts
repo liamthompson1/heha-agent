@@ -56,3 +56,8 @@ export async function hashEmail(email: string): Promise<string> {
 export function getHxAuthToken(getCookie: (name: string) => string | undefined): string | null {
   return getCookie('auth_token') ?? getCookie('auth_session') ?? null
 }
+
+/** Returns the agent retailToken if the request belongs to a B2B agent session. */
+export function getAgentRetailToken(getCookie: (name: string) => string | undefined): string | null {
+  return getCookie('hx_retail_token') ?? null
+}
