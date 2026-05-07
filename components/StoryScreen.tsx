@@ -514,8 +514,21 @@ export default function StoryScreen() {
         {isTripDetail && tripId && <TripHero tripId={tripId} params={params} />}
 
         <div className="max-w-3xl mx-auto w-full">
-          {(error === 'not_found' || (!session.loading && !session.authenticated)) && (
+          {/* Not signed in — show the existing sign-in CTA. */}
+          {!session.loading && !session.authenticated && (
             <LoginPrompt returnTo={returnTo} />
+          )}
+
+          {/* Signed-in agent landing on a story HX has no content for (e.g. home-app
+              for an agent — the home story is keyed by customer auth_token which agents
+              don't have). Show an agent-shaped empty state instead of the misleading
+              "Sign In" prompt. */}
+          {session.authenticated && error === 'not_found' && (
+            <AgentEmptyState
+              initials={session.initials}
+              agentCode={session.agentCode}
+              onStart={() => setShowNewTrip(true)}
+            />
           )}
 
           {error && error !== 'not_found' && (
@@ -881,6 +894,33 @@ function LoginPrompt({ returnTo }: { returnTo: string }) {
       >
         Sign In
       </Link>
+    </div>
+  )
+}
+
+function AgentEmptyState({
+  initials, agentCode, onStart,
+}: {
+  initials: string | null
+  agentCode: string | null
+  onStart: () => void
+}) {
+  const greeting = initials ? `Welcome, ${initials}` : 'Welcome'
+  const sub = agentCode ? `Signed in as agent ${agentCode}` : 'Signed in'
+  return (
+    <div className="flex flex-col items-center px-8 pt-20 gap-6 text-center">
+      <h2 className="text-[30px] font-semibold tracking-tight" style={{ color: 'var(--fg)' }}>{greeting}</h2>
+      <p className="text-[15px]" style={{ color: 'var(--fg-3)' }}>{sub}</p>
+      <p className="text-[18px] leading-relaxed max-w-sm" style={{ color: '#676767' }}>
+        Plan a holiday for your customer. We&rsquo;ll create the trip on their Holiday Extras account using their email address.
+      </p>
+      <button
+        onClick={onStart}
+        className="w-full max-w-xs rounded-full px-6 py-4 text-[18px] font-semibold text-center transition-opacity hover:opacity-80"
+        style={{ background: 'var(--btn-primary)', color: '#fff' }}
+      >
+        Plan a trip for a customer
+      </button>
     </div>
   )
 }
