@@ -60,18 +60,16 @@ export async function POST(req: NextRequest) {
       if (m) { customerAuthSession = m[1]; break }
     }
   } catch (e) {
-    // `createCustomerAccount` rejects when an account already exists — distinguish
-    // that from genuine upstream failures so the UI can prompt accordingly.
-    const msg = e instanceof Error ? e.message.toLowerCase() : ''
-    if (msg.includes('already') || msg.includes('exists') || msg.includes('duplicate')) {
-      return NextResponse.json({
-        error: 'customer_exists',
-        message: 'This email already has a Holiday Extras account. Ask the customer to sign in themselves to add this trip.',
-      }, { status: 409 })
-    }
+    // The customer-OTP flow (app/api/auth/request-otp) treats *any* throw from
+    // createAccountAndSignIn as "account already exists" — HX returns generic
+    // messages like "Failed to create user" rather than something explicit. We
+    // mirror that assumption here. Genuine upstream outages are rare and would
+    // also produce a "you can't create them" outcome from the UI's perspective.
+    console.warn('[agent/customer-trip] createAccountAndSignIn threw:', e instanceof Error ? e.message : e)
     return NextResponse.json({
-      error: e instanceof Error ? e.message : 'Failed to create customer account',
-    }, { status: 502 })
+      error: 'customer_exists',
+      message: 'This email already has a Holiday Extras account, or the account couldn\'t be created. Ask the customer to sign in themselves to add this trip.',
+    }, { status: 409 })
   }
 
   if (!customerAuthSession) {
