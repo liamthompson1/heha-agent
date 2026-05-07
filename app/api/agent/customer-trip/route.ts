@@ -117,10 +117,32 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No trip ID returned' }, { status: 502 })
   }
 
-  return NextResponse.json({
+  // Hand the customer's auth_session back to the agent's browser so subsequent
+  // story / image / conversation calls (which proxy `Cookie: auth_session=…`
+  // through `extractAuthToken`) can load *this* customer's trip view. Without
+  // it, the trip detail page hits the same "Resource not found" wall as the
+  // agent home page, because HX trip stories are keyed by customer auth_token.
+  //
+  // Scope: this is a freshly-minted customer with no prior data, so the agent
+  // only ever sees what the agent themselves just created. Agent identity is
+  // preserved by the heha_session JWT (isAgent:true) — auth_session is purely
+  // a downstream-API key for HX, not a UI-level "you are this customer" flag.
+  const response = NextResponse.json({
     success: true,
     tripId,
     customerEmail: email.trim().toLowerCase(),
     isNewAccount: true,
   })
+
+  response.cookies.set('auth_session', customerAuthSession, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    // 7 days — matches our app session; refreshed each time the agent creates
+    // a trip for that customer, replaced when they create one for a new one.
+    maxAge: 60 * 60 * 24 * 7,
+  })
+
+  return response
 }
